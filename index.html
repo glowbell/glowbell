@@ -69,7 +69,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text
 </head>
 <body>
 <div class="topbar">
-  <span class="topbar-title">設備点検カード</span>
+  <span class="topbar-title">各試験結果</span>
   <span class="topbar-sub" id="topbar-sub"></span>
 </div>
 <div id="app"><div class="loading"><div class="spinner"></div>読み込み中...</div></div>
@@ -155,7 +155,7 @@ function showProduct(item) {
       <div class="info-row"><span class="info-key">納入先</span><span class="info-val">${item.delivery_to||'—'}</span></div>
     </div>
     <div class="gallery">
-      <div class="card-head" style="padding:0 0 10px;border:none">外観写真</div>
+      <div class="card-head" style="padding:0 0 10px;border:none">写真</div>
       <div class="gallery-main">${mainHtml}</div>
       <div class="thumbs">${thumbsHtml}</div>
     </div>
@@ -166,12 +166,12 @@ function showProduct(item) {
 }
 
 function showList(data) {
-  document.getElementById('topbar-sub').textContent = '設備一覧';
+  document.getElementById('topbar-sub').textContent = '各試験結果一覧';
   const coGroups = {};
   data.forEach(d=>{if(!coGroups[d.company])coGroups[d.company]=[];coGroups[d.company].push(d);});
   let html = '<div class="list-section">';
   Object.entries(coGroups).forEach(([co,items])=>{
-    html += `<div class="list-label">${co}社の設備</div>`;
+    html += `<div class="list-label">${co}各試験結果</div>`;
     items.forEach(item=>{
       html += `<div class="list-item" onclick="window.location.search='?company=${item.company}&id=${item.id}'">
         <div class="list-icon">${iconSvg()}</div>
