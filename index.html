@@ -126,7 +126,20 @@ function showProduct(item, allData) {
   if(item.file2_name&&item.file2_url&&!item.file2_url.includes('ドライブ')) files.push({name:item.file2_name,url:item.file2_url});
 
   const filesHtml = files.length
-    ? files.map(f=>`<a class="file-link" href="${f.url}" target="_blank"><div class="file-icon">${fileSvg()}</div><div class="file-info"><div class="file-name">${f.name}</div><div class="file-type">タップしてダウンロード</div></div><span class="file-arrow">${arrowSvg()}</span></a>`).join('')
+    ? files.map(f=>`
+      <div style="padding:12px 18px;border-bottom:1px solid var(--border)">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;cursor:pointer" onclick="toggleFile('file-${f.name.replace(/\s/g,'_')}')">
+          <div class="file-icon">${fileSvg()}</div>
+          <div class="file-info">
+            <div class="file-name">${f.name}</div>
+            <div class="file-type">タップして表示／非表示</div>
+          </div>
+          <span class="file-arrow" id="arr-${f.name.replace(/\s/g,'_')}">${arrowSvg()}</span>
+        </div>
+        <div id="file-${f.name.replace(/\s/g,'_')}" style="display:none">
+          <iframe src="${f.url}" style="width:100%;height:400px;border:none;border-radius:8px;background:var(--bg)" allowfullscreen></iframe>
+        </div>
+      </div>`).join('')
     : `<div style="padding:14px 18px;font-size:13px;color:var(--muted)">ファイル未登録</div>`;
 
   document.getElementById('app').innerHTML = `
@@ -174,6 +187,13 @@ function showList(data) {
   html += '</div>';
   document.getElementById('app').innerHTML = html;
 }
+
+window.toggleFile = function(id){
+  const el = document.getElementById(id);
+  if(!el) return;
+  const show = el.style.display === 'none';
+  el.style.display = show ? 'block' : 'none';
+};
 
 window.selectThumb = function(el,idx){
   document.querySelectorAll('.thumb').forEach(t=>t.classList.remove('active'));
