@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QR一括書き出し</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{--green:#1a6e43;--green-light:#e8f5ee;--border:#e5e7eb;--bg:#f3f4f6;--white:#fff;--text:#111827;--muted:#6b7280}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text)}
+.header{background:var(--green);padding:14px 24px;display:flex;align-items:center;justify-content:space-between}
+.header h1{color:#fff;font-size:16px;font-weight:700}
+.btn{background:#fff;color:var(--green);border:none;padding:8px 20px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit}
+.btn:hover{background:#e8f5ee}
+.btn-primary{background:var(--green);color:#fff;border:2px solid rgba(255,255,255,.3)}
+.btn-primary:hover{background:#155736}
+.controls{padding:16px 24px;display:flex;align-items:center;gap:12px;background:var(--white);border-bottom:1px solid var(--border)}
+.controls label{font-size:12px;color:var(--muted);font-weight:700}
+.controls input{border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px;font-family:inherit;width:420px}
+.controls input:focus{outline:none;border-color:var(--green)}
+.status{font-size:12px;color:var(--muted);margin-left:auto}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;padding:24px}
+.qr-card{background:var(--white);border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;flex-direction:column;align-items:center;gap:8px}
+.qr-box{width:120px;height:120px;display:flex;align-items:center;justify-content:center}
+.qr-box canvas, .qr-box img{width:120px!important;height:120px!important}
+.qr-id{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);text-align:center}
+.qr-name{font-size:12px;font-weight:700;text-align:center;color:var(--text)}
+.qr-token{font-family:'DM Mono',monospace;font-size:9px;color:var(--border);text-align:center;word-break:break-all}
+.empty{text-align:center;padding:60px;color:var(--muted);font-size:14px}
+.loading{text-align:center;padding:60px;color:var(--muted);font-size:14px}
+.spinner{width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* 印刷スタイル */
+@media print {
+  .header,.controls{display:none!important}
+  .grid{padding:8px;gap:10px;grid-template-columns:repeat(4,1fr)}
+  .qr-card{break-inside:avoid;border:1px solid #ccc;padding:10px}
+  body{background:#fff}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🔲 QR一括書き出し</h1>
+  <div style="display:flex;gap:8px">
+    <button class="btn" onclick="loadData()">再読み込み</button>
+    <button class="btn btn-primary" onclick="window.print()">印刷 / PDF保存</button>
+  </div>
+</div>
+
+<div class="controls">
+  <label>ベースURL</label>
+  <input type="text" id="base-url" placeholder="例: https://yourname.github.io/repo/p.html" value="">
+  <span class="status" id="status">URLを入力して再読み込みしてください</span>
+</div>
+
+<div id="grid" class="grid">
+  <div class="loading"><div class="spinner"></div>読み込み中...</div>
+</div>
+
+<script>
+// ▼ 自分のスプレッドシートのCSV公開URLに変更
+const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSwkLbARl1BjZPGMsVezP0nKoqkRpjHxdzoqfIahtax7IZCmtCJjjUHWO5tuFOiJg/pub?gid=1307910431&single=true&output=csv";
+
+async function fetchData() {
+  const res = await fetch(CSV_URL);
+  const text = await res.text();
+  const rows = text.trim().split("\n").map(r => {
+    const result = [];
+    let cur = "", inQ = false;
+    for(let i=0;i<r.length;i++){
+      if(r[i]==='"'){inQ=!inQ;}
+      else if(r[i]===','&&!inQ){result.push(cur.trim());cur="";}
+      else{cur+=r[i];}
+    }
+    result.push(cur.trim());
+    return result;
+  });
+  const headers = rows.shift().map(h => h.replace(/"/g,'').trim());
+  return rows
+    .filter(r => r.some(c => c && !c.includes('など') && !c.includes('YYYY')))
+    .map(r => Object.fromEntries(headers.map((h,i) => [h,(r[i]||"").replace(/"/g,'').trim()])));
+}
+
+async function loadData() {
+  const baseUrl = document.getElementById('base-url').value.trim();
+  const grid = document.getElementById('grid');
+  const status = document.getElementById('status');
+
+  if (!baseUrl) {
+    status.textContent = '⚠️ ベースURLを入力してください';
+    return;
+  }
+
+  grid.innerHTML = '<div class="loading"><div class="spinner"></div>読み込み中...</div>';
+  status.textContent = '読み込み中...';
+
+  try {
+    const data = await fetchData();
+    const withToken = data.filter(d => d.token && d.token.trim());
+
+    if (withToken.length === 0) {
+      grid.innerHTML = '<div class="empty">tokenが生成されていません。<br>先にGASスクリプトでtokenを生成してください。</div>';
+      status.textContent = 'tokenなし';
+      return;
+    }
+
+    status.textContent = `${withToken.length}件`;
+    grid.innerHTML = '';
+
+    withToken.forEach(item => {
+      const url = `${baseUrl}?token=${item.token}`;
+      const card = document.createElement('div');
+      card.className = 'qr-card';
+
+      const qrBox = document.createElement('div');
+      qrBox.className = 'qr-box';
+      card.appendChild(qrBox);
+
+      card.innerHTML += `
+        <div class="qr-id">${item.id}</div>
+        <div class="qr-name">${item.name}</div>
+        <div class="qr-token">${item.token}</div>`;
+
+      grid.appendChild(card);
+
+      // QRコード生成
+      new QRCode(qrBox, {
+        text: url,
+        width: 120,
+        height: 120,
+        colorDark: "#111827",
+        colorLight: "#ffffff",
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    });
+
+  } catch(e) {
+    grid.innerHTML = `<div class="empty">読み込み失敗: ${e.message}</div>`;
+    status.textContent = 'エラー';
+  }
+}
+
+// 初期読み込み
+loadData();
+</script>
+</body>
+</html>
